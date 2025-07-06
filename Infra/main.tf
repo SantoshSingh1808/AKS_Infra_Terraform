@@ -28,7 +28,7 @@ resource "azurerm_kubernetes_cluster" "sonu_cluster" {
 
 resource "azurerm_container_registry" "acr" {
   name                = "SonuACR001" # globally unique
-  resource_group_name = data.azurerm_resource_group.sonu_rg.name
+  resource_group_name = azurerm_resource_group.sonu_rg.name
   location            = "Malaysia West"
   sku                 = "Basic"
   admin_enabled       = true # only for dev/test
