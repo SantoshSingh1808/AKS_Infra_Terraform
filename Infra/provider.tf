@@ -5,6 +5,12 @@ terraform {
       version = "4.33.0"
     }
   }
+backend "azurerm" {
+    resource_group_name  = "Agent-RG"
+    storage_account_name = "agentstorage12"
+    container_name       = "tfstate"
+    key                  = "aks.tfstate"
+  }
 }
 
 provider "azurerm" {
