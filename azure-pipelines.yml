@@ -9,3 +9,20 @@ steps:
   inputs:
     terraformVersion: 'latest'
 
+- task: TerraformTask@5
+  inputs:
+    provider: 'azurerm'
+    command: 'init'
+    workingDirectory: 'AKS_Infra /Infra'
+    backendServiceArm: 'Github'
+    backendAzureRmResourceGroupName: 'sonu-rg'
+    backendAzureRmStorageAccountName: 'sonustorage2'
+    backendAzureRmContainerName: 'tfstate'
+    backendAzureRmKey: 'github.terraform.tfstate'
+
+- task: TerraformTask@5
+  inputs:
+    provider: 'azurerm'
+    command: 'plan'
+    workingDirectory: 'AKS_Infra /Infra'
+    environmentServiceNameAzureRM: 'Github'
