@@ -13,7 +13,7 @@ steps:
   inputs:
     provider: 'azurerm'
     command: 'init'
-    workingDirectory: 'AKS_Infra /Infra'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/AKS_Infra_Terraform/Infra'
     backendServiceArm: 'Github'
     backendAzureRmResourceGroupName: 'sonu-rg'
     backendAzureRmStorageAccountName: 'sonustorage2'
@@ -24,5 +24,5 @@ steps:
   inputs:
     provider: 'azurerm'
     command: 'plan'
-    workingDirectory: 'AKS_Infra /Infra'
+    workingDirectory: '$(System.DefaultWorkingDirectory)/AKS_Infra_Terraform/Infra'
     environmentServiceNameAzureRM: 'Github'
