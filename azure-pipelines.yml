@@ -1,50 +1,158 @@
 trigger:
-- main
+  branches:
+    include:
+      - none
 
 pool:
-  name: MyPool
+  vmImage: 'windows-latest'
 
-# steps:
-# - task: TerraformInstaller@1
-#   inputs:
-#     terraformVersion: 'latest'
+variables:
+  buildConfiguration: 'Release'
+  artifactName: 'drop'
+  packageName: 'MyApp.zip'
 
-# - task: TerraformTask@5
-#   inputs:
-#     provider: 'azurerm'
-#     command: 'init'
-#     workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
-#     backendServiceArm: 'Github'
-#     backendAzureRmResourceGroupName: 'sonu-rg'
-#     backendAzureRmStorageAccountName: 'sonustorage2'
-#     backendAzureRmContainerName: 'tfstate'
-#     backendAzureRmKey: 'github.terraform.tfstate'
+stages:
+  # ===========================
+  # 1️⃣ BUILD STAGE
+  # ===========================
+  - stage: Build
+    displayName: 'Build and Package App'
+    jobs:
+      - job: BuildApp
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK'
+            inputs:
+              packageType: 'sdk'
+              version: '6.x'
 
-# - task: TerraformTask@5
-#   inputs:
-#     provider: 'azurerm'
-#     command: 'plan'
-#     workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
-#     environmentServiceNameAzureRM: 'Github'
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore Dependencies'
+            inputs:
+              command: 'restore'
+              projects: '**/*.csproj'
 
-steps:
-  - task: UseDotNet@2
-    inputs:
-      packageType: 'sdk'
-      version: '6.x'
+          - task: DotNetCoreCLI@2
+            displayName: 'Build Project'
+            inputs:
+              command: 'build'
+              projects: '**/*.csproj'
+              arguments: '--configuration $(buildConfiguration)'
 
-  - task: DotNetCoreCLI@2
-    inputs:
-      command: 'build'
-      projects: '**/*.csproj'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish Project'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+              zipAfterPublish: true
 
-  - task: DotNetCoreCLI@2
-    inputs:
-      command: 'publish'
-      projects: '**/*.csproj'
-      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Artifacts'
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: '$(artifactName)'
 
-  - task: PublishBuildArtifacts@1
-    inputs:
-      pathToPublish: '$(Build.ArtifactStagingDirectory)'
-      artifactName: 'drop'
+  # ===========================
+  # 2️⃣ DEPLOY TO DEV
+  # ===========================
+  - stage: Dev
+    displayName: 'Deploy to Dev Environment'
+    dependsOn: Build
+    variables:
+      - name: deployPath
+        value: 'C:\inetpub\wwwroot\MyApp-Dev'
+      - name: appPoolName
+        value: 'MyAppPool-Dev'
+      - name: webAppName
+        value: 'MyApp-Dev'
+    jobs:
+      - deployment: IISDeployDev
+        environment: 'IIS-Dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: '$(artifactName)'
+
+                - task: PowerShell@2
+                  displayName: 'Deploy to IIS - Dev'
+                  inputs:
+                    targetType: 'filePath'
+                    filePath: 'scripts/Deploy-IIS.ps1'
+                    arguments: >
+                      -AppPath "$(deployPath)"
+                      -PackagePath "$(Pipeline.Workspace)\$(artifactName)\$(packageName)"
+                      -AppPool "$(appPoolName)"
+                      -WebApp "$(webAppName)"
+
+  # ===========================
+  # 3️⃣ DEPLOY TO UAT
+  # ===========================
+  - stage: UAT
+    displayName: 'Deploy to UAT Environment'
+    dependsOn: Dev
+    condition: succeeded()
+    variables:
+      - name: deployPath
+        value: 'C:\inetpub\wwwroot\MyApp-UAT'
+      - name: appPoolName
+        value: 'MyAppPool-UAT'
+      - name: webAppName
+        value: 'MyApp-UAT'
+    jobs:
+      - deployment: IISDeployUAT
+        environment: 'IIS-UAT'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: '$(artifactName)'
+
+                - task: PowerShell@2
+                  displayName: 'Deploy to IIS - UAT'
+                  inputs:
+                    targetType: 'filePath'
+                    filePath: 'scripts/Deploy-IIS.ps1'
+                    arguments: >
+                      -AppPath "$(deployPath)"
+                      -PackagePath "$(Pipeline.Workspace)\$(artifactName)\$(packageName)"
+                      -AppPool "$(appPoolName)"
+                      -WebApp "$(webAppName)"
+
+  # ===========================
+  # 4️⃣ DEPLOY TO PROD
+  # ===========================
+  - stage: Prod
+    displayName: 'Deploy to Production Environment'
+    dependsOn: UAT
+    condition: succeeded()
+    variables:
+      - name: deployPath
+        value: 'C:\inetpub\wwwroot\MyApp'
+      - name: appPoolName
+        value: 'MyAppPool'
+      - name: webAppName
+        value: 'MyApp'
+    jobs:
+      - deployment: IISDeployProd
+        environment: 'IIS-Prod'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: '$(artifactName)'
+
+                - task: PowerShell@2
+                  displayName: 'Deploy to IIS - Prod'
+                  inputs:
+                    targetType: 'filePath'
+                    filePath: 'scripts/Deploy-IIS.ps1'
+                    arguments: >
+                      -AppPath "$(deployPath)"
+                      -PackagePath "$(Pipeline.Workspace)\$(artifactName)\$(packageName)"
+                      -AppPool "$(appPoolName)"
+                      -WebApp "$(webAppName)"
