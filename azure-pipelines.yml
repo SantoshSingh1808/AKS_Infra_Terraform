@@ -4,25 +4,47 @@ trigger:
 pool:
   name: MyPool
 
+# steps:
+# - task: TerraformInstaller@1
+#   inputs:
+#     terraformVersion: 'latest'
+
+# - task: TerraformTask@5
+#   inputs:
+#     provider: 'azurerm'
+#     command: 'init'
+#     workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
+#     backendServiceArm: 'Github'
+#     backendAzureRmResourceGroupName: 'sonu-rg'
+#     backendAzureRmStorageAccountName: 'sonustorage2'
+#     backendAzureRmContainerName: 'tfstate'
+#     backendAzureRmKey: 'github.terraform.tfstate'
+
+# - task: TerraformTask@5
+#   inputs:
+#     provider: 'azurerm'
+#     command: 'plan'
+#     workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
+#     environmentServiceNameAzureRM: 'Github'
+
 steps:
-- task: TerraformInstaller@1
-  inputs:
-    terraformVersion: 'latest'
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '6.x'
 
-- task: TerraformTask@5
-  inputs:
-    provider: 'azurerm'
-    command: 'init'
-    workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
-    backendServiceArm: 'Github'
-    backendAzureRmResourceGroupName: 'sonu-rg'
-    backendAzureRmStorageAccountName: 'sonustorage2'
-    backendAzureRmContainerName: 'tfstate'
-    backendAzureRmKey: 'github.terraform.tfstate'
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'build'
+      projects: '**/*.csproj'
 
-- task: TerraformTask@5
-  inputs:
-    provider: 'azurerm'
-    command: 'plan'
-    workingDirectory: '$(System.DefaultWorkingDirectory)/Infra'
-    environmentServiceNameAzureRM: 'Github'
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'publish'
+      projects: '**/*.csproj'
+      arguments: '--configuration Release --output $(Build.ArtifactStagingDirectory)'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'drop'
