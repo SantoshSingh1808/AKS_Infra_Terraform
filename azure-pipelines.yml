@@ -26,6 +26,13 @@ stages:
               packageType: 'sdk'
               version: '6.x'
 
+          - task: AzureKeyVault@2
+            inputs:
+              azureSubscription: 'dotnet-connection'
+              KeyVaultName: 'kv2-healthcheck-dev'
+              SecretsFilter: '*'
+              RunAsPreJob: true
+
           - task: DotNetCoreCLI@2
             displayName: 'Restore Dependencies'
             inputs:
